@@ -1,6 +1,21 @@
-use crate::{Tensor, Type, CHUNK_SIZE};
-
 use half::f16;
+use std::ptr;
+
+pub unsafe fn get_rows_raw<T, I: Into<usize>>(
+    a: *const T,
+    idxs: *const I,
+    dst: *mut T,
+    n: usize,
+    stride: usize,
+    indices: usize,
+) {
+    for i in 0..indices {
+        let idx = idxs.add(i).read();
+        let src = a.add(idx.into() * stride);
+        let dst = dst.add(i * stride);
+        ptr::copy_nonoverlapping(src, dst, n);
+    }
+}
 
 pub unsafe fn dot_raw_f32(n: usize, a: *const f32, b: *const f32) -> f32 {
     let mut sum = 0.0;
@@ -38,22 +53,23 @@ pub unsafe fn dot_raw_f16_f32(a: *const f16, b: *const f32, n: usize) -> f32 {
     acc
 }
 
-pub unsafe fn linear_raw_f16(
+pub unsafe fn matvec_raw_f16(
     a: *const f16,
     b: *const f16,
     c: *mut f16,
     n: usize,
+    m: usize,
     stride_a1: usize,
 ) {
     assert!(n <= stride_a1);
 
-    for i in 0..n {
+    for i in 0..m {
         let x = dot_raw_f16(a.add(i * stride_a1), b, n);
         *c.add(i) = f16::from_f32(x);
     }
 }
 
-pub unsafe fn silu_raw_f16(n: usize, a: *const f16, b: *mut f16) {
+pub unsafe fn silu_raw_f16(a: *const f16, b: *mut f16, n: usize) {
     for i in 0..n {
         let x = a.add(i).read().to_f32();
         let y = x * (1.0 / (1.0 + (-x).exp()));

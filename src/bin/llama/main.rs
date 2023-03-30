@@ -24,5 +24,8 @@ fn main() -> io::Result<()> {
 
     println!("{:?}", tokenizer.encode("Hello, world!"));
 
+    let prompt = " Building a website can be done in 10 simple steps:";
+    let tokens = tokenizer.encode(prompt);
+
     Ok(())
 }
