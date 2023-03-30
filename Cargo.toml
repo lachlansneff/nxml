@@ -3,6 +3,9 @@ name = "nxml"
 version = "0.1.0"
 edition = "2021"
 
+[profile.release]
+debug = true
+
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [[bin]]
@@ -12,5 +15,6 @@ path = "src/bin/llama/main.rs"
 [dependencies]
 bstr = "1.4.0"
 clap = { version = "4.2.1", features = ["derive"] }
-half = "2.2.1"
+# half = { version = "2.2.1" }
+half = { git = "https://github.com/starkat99/half-rs.git"}
 ordered-float = "3.6.0"

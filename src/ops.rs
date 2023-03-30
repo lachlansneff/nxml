@@ -9,6 +9,7 @@ pub unsafe fn get_rows_raw<T, I: Into<usize>>(
     stride: usize,
     indices: usize,
 ) {
+    assert!(n <= stride);
     for i in 0..indices {
         let idx = idxs.add(i).read();
         let src = a.add(idx.into() * stride);
@@ -81,7 +82,28 @@ pub unsafe fn matmul_raw_f16(
     for i in 0..m {
         for j in 0..p {
             let x = dot_raw_f16(a.add(i * stride_a1), b.add(j * stride_b1), n);
-            *c.add(i * stride_a1 + j) = f16::from_f32(x);
+            *c.add(j * stride_a1 + i) = f16::from_f32(x);
+        }
+    }
+}
+
+pub unsafe fn matmul_raw_f32_f16(
+    a: *const f32,
+    b: *const f16,
+    c: *mut f16,
+    m: usize,
+    n: usize,
+    p: usize,
+    stride_a1: usize,
+    stride_b1: usize,
+) {
+    assert!(n <= stride_a1);
+    assert!(p <= stride_b1);
+
+    for i in 0..m {
+        for j in 0..p {
+            let x = dot_raw_f16_f32(b.add(j * stride_b1), a.add(i * stride_a1), n);
+            *c.add(j * stride_a1 + i) = f16::from_f32(x);
         }
     }
 }
@@ -148,6 +170,18 @@ pub unsafe fn flash_attn_raw_f16(
         for j in 0..d {
             let x = dot_raw_f16_f32(v.add(j * stride_v1), s.as_ptr(), n);
             *o.add(i * stride_o1 + j) = f16::from_f32(x);
+        }
+    }
+}
+
+pub unsafe fn tile_raw<T>(src: *const T, dst: *mut T, src_shape: [usize; 1], dst_copies: [usize; 2]) {
+    for i in 0..dst_copies[1] {
+        for j in 0..dst_copies[0] {
+            ptr::copy_nonoverlapping(
+                src.add(i * src_shape[0]),
+                dst.add(i * dst_copies[0] * src_shape[0] + j * src_shape[0]),
+                src_shape[0],
+            );
         }
     }
 }

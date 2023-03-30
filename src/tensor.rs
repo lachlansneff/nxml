@@ -50,7 +50,30 @@ impl<T: TensorElement, const DIMS: usize> Tensor<T, DIMS> {
 
     pub fn tile<const DIMS2: usize>(&self, shape: [usize; DIMS2]) -> Tensor<T, DIMS2> {
         assert!(DIMS <= DIMS2);
-        todo!()
+
+        // let mut cur = [1; DIMS2];
+        // cur[..DIMS].copy_from_slice(&self.shape);
+
+        // for (from, to) in self.shape.iter().zip(shape.iter()) {
+        //     assert!(from <= to);
+        //     assert_eq!(to % from, 0);
+        // }
+
+        assert_eq!(DIMS, 1);
+        assert!(DIMS2 == 1 || DIMS2 == 2);
+
+        let mut o = Tensor::zeros(shape);
+
+        unsafe {
+            ops::tile_raw(
+                self.data.as_ptr(),
+                Arc::get_mut(&mut o.data).unwrap().as_mut_ptr(),
+                [self.shape[0]],
+                [shape[0] / self.shape[0], shape[1] / self.shape[0]],
+            )
+        }
+
+        o
     }
 
     pub fn reshape<const DIMS2: usize>(&self, shape: [usize; DIMS2]) -> Tensor<T, DIMS2> {
@@ -111,7 +134,7 @@ impl<T: TensorElement> Tensor<T, 2> {
                 idxs.data.as_ptr(),
                 Arc::get_mut(&mut o.data).unwrap().as_mut_ptr(),
                 self.shape[0],
-                self.shape[1],
+                self.shape[0],
                 idxs.shape[0],
             );
         }
@@ -123,19 +146,19 @@ impl<T: TensorElement> Tensor<T, 2> {
 impl Tensor<f16, 2> {
     pub fn matmul<const DIMS: usize>(&self, x: &Tensor<f16, DIMS>) -> Tensor<f16, DIMS> {
         assert!(DIMS <= 2);
-        assert_eq!(self.shape[1], x.shape[0]);
+        assert_eq!(self.shape[0], x.shape[0]);
 
         let mut shape = x.shape;
         shape[0] = self.shape[0];
-        let mut y = Tensor::<f16, DIMS>::zeros(shape);
+        let mut y = dbg!(Tensor::<f16, DIMS>::zeros(shape));
 
         unsafe {
             ops::matmul_raw_f16(
                 self.data.as_ptr(),
                 x.data.as_ptr(),
                 Arc::get_mut(&mut y.data).unwrap().as_mut_ptr(),
-                self.shape[0],
                 self.shape[1],
+                self.shape[0],
                 x.shape.get(1).copied().unwrap_or(1),
                 self.shape[0],
                 x.shape[0],
@@ -185,5 +208,31 @@ impl Tensor<f16, 2> {
         }
 
         o
+    }
+}
+
+impl Tensor<f32, 2> {
+    pub fn matmul<const DIMS: usize>(&self, x: &Tensor<f16, DIMS>) -> Tensor<f16, DIMS> {
+        assert!(DIMS <= 2);
+        assert_eq!(self.shape[0], x.shape[0]);
+
+        let mut shape = x.shape;
+        shape[0] = self.shape[0];
+        let mut y = Tensor::<f16, DIMS>::zeros(shape);
+
+        unsafe {
+            ops::matmul_raw_f32_f16(
+                self.data.as_ptr(),
+                x.data.as_ptr(),
+                Arc::get_mut(&mut y.data).unwrap().as_mut_ptr(),
+                self.shape[1],
+                self.shape[0],
+                x.shape.get(1).copied().unwrap_or(1),
+                self.shape[0],
+                x.shape[0],
+            );
+        }
+
+        y
     }
 }
