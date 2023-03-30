@@ -1,5 +1,6 @@
 use std::{
     collections::HashMap,
+    fmt,
     fs::File,
     io::{self, Read},
     mem,
@@ -9,6 +10,7 @@ use std::{
 use bstr::BString;
 use half::f16;
 
+use crate::tensor::Tensor;
 use crate::tokenizer::{Token, Vocab};
 
 #[derive(Debug)]
@@ -23,8 +25,48 @@ pub enum Data {
 }
 
 pub struct Var {
+    pub name: String,
     pub dims: Vec<usize>,
     pub data: Data,
+}
+
+impl Var {
+    pub fn as_tensor_f16<const DIMS: usize>(self) -> Result<Tensor<f16, DIMS>, Self> {
+        let shape = if let Ok(arr) = self.dims[..].try_into() {
+            arr
+        } else {
+            return Err(self);
+        };
+
+        if let Data::F16(data) = self.data {
+            Ok(Tensor::<f16, DIMS>::new(data, shape))
+        } else {
+            Err(self)
+        }
+    }
+
+    pub fn as_tensor_f32<const DIMS: usize>(self) -> Result<Tensor<f32, DIMS>, Self> {
+        let shape = if let Ok(arr) = self.dims[..].try_into() {
+            arr
+        } else {
+            return Err(self);
+        };
+
+        if let Data::F32(data) = self.data {
+            Ok(Tensor::<f32, DIMS>::new(data, shape))
+        } else {
+            Err(self)
+        }
+    }
+}
+
+impl fmt::Debug for Var {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
+        f.debug_struct("Var")
+            .field("name", &self.name)
+            .field("dims", &self.dims)
+            .finish()
+    }
 }
 
 #[derive(Debug)]
@@ -189,7 +231,10 @@ impl Ggml {
                 _ => return Err(io::Error::new(io::ErrorKind::InvalidData, "invalid ftype")),
             };
 
-            if vars.insert(name, Var { dims, data }).is_some() {
+            if vars
+                .insert(name.clone(), Var { name, dims, data })
+                .is_some()
+            {
                 return Err(io::Error::new(
                     io::ErrorKind::InvalidData,
                     "duplicate variable name",
