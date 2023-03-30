@@ -1,5 +1,3 @@
-#![feature(portable_simd, pointer_is_aligned)]
-
 mod ops;
 
 pub const MAX_DIMS: usize = 4;
