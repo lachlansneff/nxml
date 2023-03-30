@@ -51,6 +51,12 @@ fn main() -> io::Result<()> {
     let prompt = " Building a website can be done in 10 simple steps:";
     let tokens = tokenizer.encode(prompt);
 
+    let model = build_model(ggml);
+
+    Ok(())
+}
+
+fn build_model(mut ggml: Ggml) -> Model {
     let mut layers = vec![];
     for i in 0..ggml.hparams.n_layers {
         let layer = Layer {
@@ -116,7 +122,7 @@ fn main() -> io::Result<()> {
         layers.push(layer);
     }
 
-    let model = Model {
+    Model {
         tok_embeddings: ggml
             .vars
             .remove(&format!("tok_embeddings.weight"))
@@ -137,7 +143,5 @@ fn main() -> io::Result<()> {
             .unwrap(),
 
         layers,
-    };
-
-    Ok(())
+    }
 }
