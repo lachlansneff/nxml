@@ -3,6 +3,8 @@ use std::collections::{BinaryHeap, HashMap};
 use bstr::{BStr, BString};
 use ordered_float::OrderedFloat;
 
+use crate::tensor::Tensor;
+
 pub struct Token {
     pub token: BString,
     pub score: f32,
@@ -60,7 +62,7 @@ impl Tokenizer {
     }
 
     /// Not sure if this even makes sense
-    pub fn encode(&self, text: &str) -> Vec<usize> {
+    pub fn encode(&self, text: &str) -> Tensor<usize, 1> {
         let mut output = vec![1];
 
         let mut symbols = text
@@ -136,7 +138,7 @@ impl Tokenizer {
             println!("token: \"{}\"", self.vocab.id_to_token[*id].token);
         }
 
-        output
+        output.into()
     }
 
     fn try_add_bigram(

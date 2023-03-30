@@ -56,8 +56,26 @@ fn main() -> io::Result<()> {
     Ok(())
 }
 
+fn compute_model(tokens: Tensor<usize, 1>, model: &Model) -> Tensor<usize, 1> {
+    let mut input = model.tok_embeddings.get_rows(tokens);
+
+    for layer in &model.layers {
+        let cur = input.rms_norm();
+        let cur = layer.attn_norm.tile(cur.shape()).matmul(&cur);
+
+        let q = layer.wq.matmul(&cur);
+        let k = layer.wk.matmul(&cur);
+        let v = layer.wv.matmul(&cur);
+        let cur = v.flash_attn(q, k);
+        let cur = layer.wo.matmul(&cur);
+    }
+
+    todo!()
+}
+
 fn build_model(mut ggml: Ggml) -> Model {
     let mut layers = vec![];
+
     for i in 0..ggml.hparams.n_layers {
         let layer = Layer {
             attn_norm: ggml

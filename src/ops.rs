@@ -17,6 +17,18 @@ pub unsafe fn get_rows_raw<T, I: Into<usize>>(
     }
 }
 
+pub unsafe fn rms_norm_f16(a: *const f16, dst: *mut f16, n: usize, m: usize, stride: usize) {
+    for i in 0..m {
+        let v = a.add(i * stride);
+
+        let rms = (dot_raw_f16(v, v, n) / n as f32).sqrt();
+
+        for j in 0..n {
+            *dst.add(i * stride + j) = f16::from_f32((*v.add(j)).to_f32() / rms);
+        }
+    }
+}
+
 pub unsafe fn dot_raw_f32(n: usize, a: *const f32, b: *const f32) -> f32 {
     let mut sum = 0.0;
 
@@ -53,19 +65,24 @@ pub unsafe fn dot_raw_f16_f32(a: *const f16, b: *const f32, n: usize) -> f32 {
     acc
 }
 
-pub unsafe fn matvec_raw_f16(
+pub unsafe fn matmul_raw_f16(
     a: *const f16,
     b: *const f16,
     c: *mut f16,
-    n: usize,
     m: usize,
+    n: usize,
+    p: usize,
     stride_a1: usize,
+    stride_b1: usize,
 ) {
     assert!(n <= stride_a1);
+    assert!(p <= stride_b1);
 
     for i in 0..m {
-        let x = dot_raw_f16(a.add(i * stride_a1), b, n);
-        *c.add(i) = f16::from_f32(x);
+        for j in 0..p {
+            let x = dot_raw_f16(a.add(i * stride_a1), b.add(j * stride_b1), n);
+            *c.add(i * stride_a1 + j) = f16::from_f32(x);
+        }
     }
 }
 
