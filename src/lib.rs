@@ -1,4 +1,6 @@
+pub mod ggml;
 mod ops;
+pub mod tokenizer;
 
 pub const MAX_DIMS: usize = 4;
 

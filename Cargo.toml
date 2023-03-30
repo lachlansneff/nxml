@@ -5,5 +5,12 @@ edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[[bin]]
+name = "llama"
+path = "src/bin/llama/main.rs"
+
 [dependencies]
+bstr = "1.4.0"
+clap = { version = "4.2.1", features = ["derive"] }
 half = "2.2.1"
+ordered-float = "3.6.0"
