@@ -3,6 +3,8 @@ use half::f16;
 use std::fmt;
 use std::sync::Arc;
 
+pub const MAX_DIMS: usize = 4;
+
 #[derive(Clone)]
 pub struct Tensor<T, const DIMS: usize> {
     data: Arc<Box<[T]>>,
@@ -25,15 +27,28 @@ impl TensorElement for usize {
     const ZERO: Self = 0;
 }
 
+pub trait ValidTensorDims {}
+impl<T> ValidTensorDims for Tensor<T, 1> {}
+impl<T> ValidTensorDims for Tensor<T, 2> {}
+impl<T> ValidTensorDims for Tensor<T, 3> {}
+impl<T> ValidTensorDims for Tensor<T, 4> {}
+
 impl<T: fmt::Debug, const DIMS: usize> fmt::Debug for Tensor<T, DIMS> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "Tensor{:?}", self.shape)
     }
 }
 
+fn extend_shape<const DIMS: usize>(shape: [usize; DIMS]) -> [usize; MAX_DIMS] {
+    let mut o = [1; MAX_DIMS];
+    o[MAX_DIMS-DIMS..].copy_from_slice(&shape);
+    o
+}
+
 impl<T: TensorElement, const DIMS: usize> Tensor<T, DIMS> {
     pub fn new(data: Vec<T>, shape: [usize; DIMS]) -> Self {
         assert_eq!(shape.iter().product::<usize>(), data.len());
+
         Self {
             data: Arc::new(data.into_boxed_slice()),
             shape,
@@ -48,28 +63,17 @@ impl<T: TensorElement, const DIMS: usize> Tensor<T, DIMS> {
         self.shape
     }
 
-    pub fn tile<const DIMS2: usize>(&self, shape: [usize; DIMS2]) -> Tensor<T, DIMS2> {
+    pub fn repeat<const DIMS2: usize>(&self, shape: [usize; DIMS2]) -> Tensor<T, DIMS2> {
         assert!(DIMS <= DIMS2);
-
-        // let mut cur = [1; DIMS2];
-        // cur[..DIMS].copy_from_slice(&self.shape);
-
-        // for (from, to) in self.shape.iter().zip(shape.iter()) {
-        //     assert!(from <= to);
-        //     assert_eq!(to % from, 0);
-        // }
-
-        assert_eq!(DIMS, 1);
-        assert!(DIMS2 == 1 || DIMS2 == 2);
 
         let mut o = Tensor::zeros(shape);
 
         unsafe {
-            ops::tile_raw(
+            ops::repeat(
                 self.data.as_ptr(),
                 Arc::get_mut(&mut o.data).unwrap().as_mut_ptr(),
-                [self.shape[0]],
-                [shape[0] / self.shape[0], shape[1] / self.shape[0]],
+                extend_shape(self.shape),
+                extend_shape(shape),
             )
         }
 
@@ -92,7 +96,7 @@ impl<T: TensorElement> From<Vec<T>> for Tensor<T, 1> {
     }
 }
 
-impl Tensor<f16, 1> {
+impl<const DIMS: usize> Tensor<f16, DIMS> {
     pub fn silu(&self) -> Self {
         let mut y = Self::zeros(self.shape);
 
@@ -100,7 +104,7 @@ impl Tensor<f16, 1> {
             ops::silu_raw_f16(
                 self.data.as_ptr(),
                 Arc::get_mut(&mut y.data).unwrap().as_mut_ptr(),
-                self.shape[0],
+                extend_shape(self.shape),
             );
         }
 
@@ -114,32 +118,36 @@ impl Tensor<f16, 1> {
             ops::rms_norm_f16(
                 self.data.as_ptr(),
                 Arc::get_mut(&mut o.data).unwrap().as_mut_ptr(),
-                self.shape[0],
-                1,
-                self.shape[0],
+                extend_shape(self.shape),
             );
         }
 
         o
     }
+
+    pub fn dot<const DIMS2: usize>(&self, x: &Tensor<f16, DIMS2>) -> Tensor<f16, DIMS2> {
+        let mut o = Tensor<f16, DIMS2>::zeros([]);
+
+    }
 }
 
 impl<T: TensorElement> Tensor<T, 2> {
     pub fn get_rows<I: Into<usize>>(&self, idxs: Tensor<I, 1>) -> Self {
-        let mut o = Self::zeros([self.shape[0], idxs.shape[0]]);
+        // let mut o = Self::zeros([self.shape[0], idxs.shape[0]]);
 
-        unsafe {
-            ops::get_rows_raw(
-                self.data.as_ptr(),
-                idxs.data.as_ptr(),
-                Arc::get_mut(&mut o.data).unwrap().as_mut_ptr(),
-                self.shape[0],
-                self.shape[0],
-                idxs.shape[0],
-            );
-        }
+        // unsafe {
+        //     ops::get_rows_raw(
+        //         self.data.as_ptr(),
+        //         idxs.data.as_ptr(),
+        //         Arc::get_mut(&mut o.data).unwrap().as_mut_ptr(),
+        //         self.shape[0],
+        //         self.shape[0],
+        //         idxs.shape[0],
+        //     );
+        // }
 
-        o
+        // o
+        todo!()
     }
 }
 
@@ -188,22 +196,6 @@ impl Tensor<f16, 2> {
                 k.shape[1],
                 self.shape[1],
                 o.shape[1],
-            );
-        }
-
-        o
-    }
-
-    pub fn rms_norm(&self) -> Self {
-        let mut o = Self::zeros(self.shape);
-
-        unsafe {
-            ops::rms_norm_f16(
-                self.data.as_ptr(),
-                Arc::get_mut(&mut o.data).unwrap().as_mut_ptr(),
-                self.shape[0],
-                self.shape[1],
-                self.shape[0],
             );
         }
 
